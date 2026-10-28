@@ -83,7 +83,6 @@ CREATE TABLE IF NOT EXISTS training_participants (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   training_id uuid NOT NULL REFERENCES trainings(id) ON DELETE CASCADE,
   participant_id uuid NOT NULL REFERENCES participants(id) ON DELETE RESTRICT,
-  certification_code text,
   grade numeric(5,2),
   result text NOT NULL DEFAULT 'pending'
     CHECK (result IN ('pending', 'passed', 'failed')),
@@ -91,6 +90,14 @@ CREATE TABLE IF NOT EXISTS training_participants (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (training_id, participant_id)
+);
+
+CREATE TABLE IF NOT EXISTS participant_certifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  training_participant_id uuid NOT NULL REFERENCES training_participants(id) ON DELETE CASCADE,
+  certification_code text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (training_participant_id, certification_code)
 );
 
 CREATE TABLE IF NOT EXISTS session_attendance (
@@ -124,5 +131,6 @@ CREATE INDEX IF NOT EXISTS idx_sessions_instructor_time ON training_sessions(ins
 CREATE INDEX IF NOT EXISTS idx_sessions_meeting_account_time ON training_sessions(meeting_account_id, starts_at, ends_at);
 CREATE INDEX IF NOT EXISTS idx_training_participants_training ON training_participants(training_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_session ON session_attendance(session_id);
+CREATE INDEX IF NOT EXISTS idx_participant_certifications_link ON participant_certifications(training_participant_id);
 
 COMMIT;
