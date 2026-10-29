@@ -88,6 +88,17 @@ export default function Home() {
     setTrainings(prev => [...prev, { ...trainingForm, id:id() }]);
     setTrainingForm({ title:"", client:"", status:"Pendiente", notes:"" }); setShowTraining(false); setNotice("Formación guardada en este navegador.");
   }
+  function clearDemoData() {
+    if (!window.confirm("¿Quieres borrar del navegador todas las reuniones, tareas y formaciones de prueba? Esta acción no se puede deshacer.")) return;
+    setMeetings([]);
+    setTasks([]);
+    setTrainings([]);
+    Object.keys(sessionStorage)
+      .filter(key => key.startsWith("apf-reminded-"))
+      .forEach(key => sessionStorage.removeItem(key));
+    setNotice("Se han borrado los datos de prueba de este navegador.");
+  }
+
   const nav = [
     { id:"inicio", label:"Inicio", icon:"⌂" },
     { id:"agenda", label:"Mi agenda", icon:"▦" },
@@ -138,7 +149,7 @@ export default function Home() {
             </section>
           </div>
           <section className="quick-actions"><div><p className="section-kicker">ACCESOS RÁPIDOS</p><h2>¿Qué necesitas hacer?</h2></div><div className="quick-grid"><button onClick={()=>setShowMeeting(true)}><span className="quick-icon lilac">◷</span><span><strong>Programar reunión</strong><small>Guarda una fecha y un recordatorio</small></span><b>↗</b></button><button onClick={()=>setShowTraining(true)}><span className="quick-icon green">▤</span><span><strong>Registrar formación</strong><small>Abre una ficha de seguimiento</small></span><b>↗</b></button><button onClick={()=>{setSection("tareas");setShowTask(true)}}><span className="quick-icon orange">✓</span><span><strong>Añadir tarea</strong><small>Apunta una gestión pendiente</small></span><b>↗</b></button></div></section>
-          <div className="prototype-note"><span>ⓘ</span><p><strong>Versión de prueba:</strong> la agenda, tareas y formaciones se guardan en el almacenamiento local de este navegador. Todavía no hay sincronización ni inicio de sesión; utiliza datos ficticios, no información real de alumnos.</p></div>
+          <div className="prototype-note"><span>ⓘ</span><p><strong>Prototipo:</strong> las fichas permanecen en este navegador, sin cifrado propio ni sincronización. El acceso al sitio está restringido; aun así, utiliza datos ficticios y no registres datos identificativos de alumnos hasta que se active almacenamiento de servidor con controles de acceso.</p><button type="button" className="button-secondary" onClick={clearDemoData}>Borrar datos de prueba</button></div>
         </div>}
 
         {section==="agenda" && <div className="content">
