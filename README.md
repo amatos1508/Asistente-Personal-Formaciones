@@ -47,6 +47,10 @@ Aplicación privada de uso individual para ayudar a organizar el trabajo diario,
 - Desarrollo por fases y pruebas antes de desplegar.
 - La especificación no implica que todas las funciones estén ya implementadas; deben desarrollarse y verificarse por etapas.
 
+## Seguridad y privacidad
+
+La aplicación publicada está protegida por Vercel Authentication para todos los despliegues. La versión actual todavía conserva sus fichas en el navegador sin cifrado propio; usa datos ficticios y no introduzcas datos personales de alumnos. Consulta [SECURITY.md](./SECURITY.md) para las reglas de acceso, datos, secretos, base de datos y gestión de incidentes.
+
 ## Fases propuestas
 1. Resolver y verificar el acceso privado.
 2. Panel personal, agenda manual, tareas y recordatorios dentro de la aplicación.
