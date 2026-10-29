@@ -4,7 +4,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type Meeting = { id: string; title: string; date: string; time: string; duration: number; place: string; notes: string; reminder: number };
 type Task = { id: string; title: string; due: string; done: boolean };
-type Training = { id: string; title: string; client: string; status: string; notes: string };
+type TrainingReschedule = { id: string; reason: string; date: string; time: string; recordedAt: string };
+type Training = { id: string; title: string; client: string; status: string; notes: string; scheduledDate?: string; scheduledTime?: string; reschedules?: TrainingReschedule[] };
 
 const today = () => {
   const d = new Date();
@@ -25,6 +26,9 @@ export default function Home() {
   const [showMeeting, setShowMeeting] = useState(false);
   const [showTask, setShowTask] = useState(false);
   const [showTraining, setShowTraining] = useState(false);
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [reschedulingTrainingId, setReschedulingTrainingId] = useState<string | null>(null);
+  const [rescheduleForm, setRescheduleForm] = useState({ reason:"", date:today(), time:"10:00" });
   const [notice, setNotice] = useState("");
   const [meetingForm, setMeetingForm] = useState({ title:"", date:today(), time:"10:00", duration:"60", place:"", notes:"", reminder:"15" });
   const [taskForm, setTaskForm] = useState({ title:"", due:today() });
@@ -87,6 +91,21 @@ export default function Home() {
     e.preventDefault(); if (!trainingForm.title.trim()) return;
     setTrainings(prev => [...prev, { ...trainingForm, id:id() }]);
     setTrainingForm({ title:"", client:"", status:"Pendiente", notes:"" }); setShowTraining(false); setNotice("Formación guardada en este navegador.");
+  }
+  function openReschedule(training: Training) {
+    setReschedulingTrainingId(training.id);
+    setRescheduleForm({ reason:"", date:training.scheduledDate || today(), time:training.scheduledTime || "10:00" });
+    setShowReschedule(true);
+  }
+  function rescheduleTraining(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const training = trainings.find(item => item.id === reschedulingTrainingId);
+    const reason = rescheduleForm.reason.trim();
+    if (!training || !reason || !rescheduleForm.date || !rescheduleForm.time) return;
+    const change: TrainingReschedule = { id:id(), reason, date:rescheduleForm.date, time:rescheduleForm.time, recordedAt:new Date().toISOString() };
+    setTrainings(prev => prev.map(item => item.id === training.id ? { ...item, scheduledDate:change.date, scheduledTime:change.time, reschedules:[...(item.reschedules || []), change] } : item));
+    setMeetings(prev => [...prev, { id:id(), title:`${training.title} (reprogramada)`, date:change.date, time:change.time, duration:60, place:training.client || "", notes:`Reprogramación: ${reason}`, reminder:15 }]);
+    setShowReschedule(false); setReschedulingTrainingId(null); setNotice("Reprogramación guardada en la ficha y añadida a Mi agenda con recordatorio de 15 minutos.");
   }
   function clearDemoData() {
     if (!window.confirm("¿Quieres borrar del navegador todas las reuniones, tareas y formaciones de prueba? Esta acción no se puede deshacer.")) return;
@@ -163,7 +182,7 @@ export default function Home() {
         {section==="formaciones" && <div className="content">
           <div className="page-title-row"><div><p className="eyebrow">SEGUIMIENTO PERSONAL</p><h1>Mis formaciones</h1><p className="subheading">Registra las formaciones que te asignan y añade notas iniciales.</p></div><button className="button-primary" onClick={()=>setShowTraining(true)}>＋ Nueva formación</button></div>
           <section className="panel list-panel"><div className="panel-heading"><div><p className="section-kicker">TU HISTORIAL</p><h2>Formaciones registradas</h2></div><span className="pill">{trainings.length} formaciones</span></div>
-          {trainings.map(t=><article className="training-row" key={t.id}><div className="training-mark">F</div><div className="training-info"><strong>{t.title}</strong><span>{t.client||"Sin cliente indicado"}</span>{t.notes&&<small>{t.notes}</small>}</div><select value={t.status} aria-label={"Estado de "+t.title} onChange={e=>setTrainings(prev=>prev.map(x=>x.id===t.id?{...x,status:e.target.value}:x))}><option>Pendiente</option><option>En curso</option><option>Completada</option><option>Cancelada</option></select><button className="delete-button" aria-label={"Eliminar "+t.title} onClick={()=>setTrainings(prev=>prev.filter(x=>x.id!==t.id))}>×</button></article>)}
+          {trainings.map(t=><article className="training-row" key={t.id}><div className="training-mark">F</div><div className="training-info"><strong>{t.title}</strong><span>{t.client||"Sin cliente indicado"}</span>{t.notes&&<small>{t.notes}</small>}{t.scheduledDate&&<small>Próxima fecha: {fmtDate(t.scheduledDate)} · {t.scheduledTime}</small>}{(t.reschedules||[]).length>0&&<small className="reschedule-history">Historial: {(t.reschedules||[]).map((r,index)=><span key={r.id}>{index>0?" · ":""}{fmtDate(r.date)} {r.time}: {r.reason}</span>)}</small>}</div><select value={t.status} aria-label={"Estado de "+t.title} onChange={e=>setTrainings(prev=>prev.map(x=>x.id===t.id?{...x,status:e.target.value}:x))}><option>Pendiente</option><option>En curso</option><option>Completada</option><option>Cancelada</option></select><div className="training-actions"><button type="button" className="button-secondary" onClick={()=>openReschedule(t)}>Reprogramar</button><button className="delete-button" aria-label={"Eliminar "+t.title} onClick={()=>setTrainings(prev=>prev.filter(x=>x.id!==t.id))}>×</button></div></article>)}
           {trainings.length===0&&<div className="empty-state"><span className="empty-icon">▤</span><strong>Aún no hay formaciones</strong><p>Registra una formación para empezar a organizar sus notas y seguimiento.</p><button className="button-secondary" onClick={()=>setShowTraining(true)}>＋ Registrar formación</button></div>}
           </section>
         </div>}
@@ -177,11 +196,12 @@ export default function Home() {
         </div>}
       </section>
 
-      {(showMeeting||showTask||showTraining)&&<div className="modal-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget){setShowMeeting(false);setShowTask(false);setShowTraining(false)}}}>
+      {(showMeeting||showTask||showTraining||showReschedule)&&<div className="modal-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget){setShowMeeting(false);setShowTask(false);setShowTraining(false);setShowReschedule(false)}}}>
         <section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-          <div className="modal-header"><div><p className="section-kicker">ASISTENTE PERSONAL</p><h2 id="modal-title">{showMeeting?"Añadir reunión":showTask?"Añadir tarea":"Registrar formación"}</h2></div><button className="icon-button" onClick={()=>{setShowMeeting(false);setShowTask(false);setShowTraining(false)}} aria-label="Cerrar">×</button></div>
+          <div className="modal-header"><div><p className="section-kicker">ASISTENTE PERSONAL</p><h2 id="modal-title">{showReschedule?"Reprogramar formación":showMeeting?"Añadir reunión":showTask?"Añadir tarea":"Registrar formación"}</h2></div><button className="icon-button" onClick={()=>{setShowMeeting(false);setShowTask(false);setShowTraining(false)}} aria-label="Cerrar">×</button></div>
           {showMeeting&&<form onSubmit={addMeeting} className="form-stack"><label>Título de la reunión<input required autoFocus value={meetingForm.title} onChange={e=>setMeetingForm({...meetingForm,title:e.target.value})} placeholder="Ej. Revisión de proyecto"/></label><div className="form-grid"><label>Fecha<input required type="date" value={meetingForm.date} onChange={e=>setMeetingForm({...meetingForm,date:e.target.value})}/></label><label>Hora<input required type="time" value={meetingForm.time} onChange={e=>setMeetingForm({...meetingForm,time:e.target.value})}/></label><label>Duración (minutos)<input min="5" step="5" type="number" value={meetingForm.duration} onChange={e=>setMeetingForm({...meetingForm,duration:e.target.value})}/></label><label>Recordatorio<select value={meetingForm.reminder} onChange={e=>setMeetingForm({...meetingForm,reminder:e.target.value})}><option value="5">5 minutos antes</option><option value="15">15 minutos antes</option><option value="30">30 minutos antes</option><option value="60">1 hora antes</option></select></label></div><label>Ubicación o enlace<input value={meetingForm.place} onChange={e=>setMeetingForm({...meetingForm,place:e.target.value})} placeholder="Sala, dirección o enlace"/></label><label>Notas (opcional)<textarea rows={3} value={meetingForm.notes} onChange={e=>setMeetingForm({...meetingForm,notes:e.target.value})} placeholder="Temas a tratar..."/></label><div className="modal-actions"><button type="button" className="button-secondary" onClick={()=>setShowMeeting(false)}>Cancelar</button><button className="button-primary" type="submit">Guardar reunión</button></div></form>}
           {showTask&&<form onSubmit={addTask} className="form-stack"><label>¿Qué tienes que hacer?<input required autoFocus value={taskForm.title} onChange={e=>setTaskForm({...taskForm,title:e.target.value})} placeholder="Ej. Enviar correo de cierre"/></label><label>Fecha límite<input required type="date" value={taskForm.due} onChange={e=>setTaskForm({...taskForm,due:e.target.value})}/></label><div className="modal-actions"><button type="button" className="button-secondary" onClick={()=>setShowTask(false)}>Cancelar</button><button className="button-primary" type="submit">Guardar tarea</button></div></form>}
+          {showReschedule&&<form onSubmit={rescheduleTraining} className="form-stack"><p className="subheading">Indica por qué cambia y cuándo tendrá lugar. La fecha aparecerá en Mi agenda.</p><label>Justificación<input required autoFocus maxLength={500} value={rescheduleForm.reason} onChange={e=>setRescheduleForm({...rescheduleForm,reason:e.target.value})} placeholder="Ej. indisponibilidad del formador"/></label><div className="form-grid"><label>Nueva fecha<input required type="date" value={rescheduleForm.date} onChange={e=>setRescheduleForm({...rescheduleForm,date:e.target.value})}/></label><label>Hora<input required type="time" value={rescheduleForm.time} onChange={e=>setRescheduleForm({...rescheduleForm,time:e.target.value})}/></label></div><div className="modal-actions"><button type="button" className="button-secondary" onClick={()=>setShowReschedule(false)}>Cancelar</button><button className="button-primary" type="submit">Guardar y añadir a agenda</button></div></form>}
           {showTraining&&<form onSubmit={addTraining} className="form-stack"><label>Nombre de la formación<input required autoFocus value={trainingForm.title} onChange={e=>setTrainingForm({...trainingForm,title:e.target.value})} placeholder="Ej. SOLIDWORKS Electrical básico"/></label><label>Cliente (opcional)<input value={trainingForm.client} onChange={e=>setTrainingForm({...trainingForm,client:e.target.value})} placeholder="Empresa o cliente"/></label><label>Estado<select value={trainingForm.status} onChange={e=>setTrainingForm({...trainingForm,status:e.target.value})}><option>Pendiente</option><option>En curso</option><option>Completada</option><option>Cancelada</option></select></label><label>Notas iniciales<textarea rows={3} value={trainingForm.notes} onChange={e=>setTrainingForm({...trainingForm,notes:e.target.value})} placeholder="Objetivos, temas o detalles..."/></label><div className="modal-actions"><button type="button" className="button-secondary" onClick={()=>setShowTraining(false)}>Cancelar</button><button className="button-primary" type="submit">Guardar formación</button></div></form>}
         </section>
       </div>}
