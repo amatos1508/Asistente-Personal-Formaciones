@@ -23,7 +23,7 @@ export default function Home(){
  const[af,SA]=useState({title:"",type:"Reunión" as Kind,date:today(),endDate:today(),time:"10:00",duration:"60",place:"",notes:"",reminder:"15"});
  const[tf,ST]=useState({title:"",client:"",date:today(),start:"09:00",end:"15:00"});
  const[taskForm,STF]=useState({title:"",due:today()}),[cf,SC]=useState({reason:"",date:today(),time:"09:00"});
- useEffect(()=>{try{const a=localStorage.getItem("apf-demo-meetings"),t=localStorage.getItem("apf-demo-tasks"),f=localStorage.getItem("apf-demo-trainings");if(a)A(JSON.parse(a));if(t)T(JSON.parse(t));if(f)F((JSON.parse(f) as Training[]).map(x=>({...x,days:x.days||[],students:x.students||[],changes:x.changes||x.reschedules?.map(c=>({...c,oldDate:c.oldDate||c.date}))||[]})))}catch{}R(true)},[]);
+ useEffect(()=>{try{const a=localStorage.getItem("apf-demo-meetings"),t=localStorage.getItem("apf-demo-tasks"),f=localStorage.getItem("apf-demo-trainings");if(a)A(JSON.parse(a));if(t)T(JSON.parse(t));if(f)F((JSON.parse(f) as Training[]).map(x=>({...x,days:x.days||[],students:x.students||[],changes:x.changes||x.reschedules?.map(c=>({...c,dayId:"legacy",oldDate:c.oldDate||c.date}))||[]})))}catch{}R(true)},[]);
  useEffect(()=>{if(ready)localStorage.setItem("apf-demo-meetings",JSON.stringify(activities))},[activities,ready]);
  useEffect(()=>{if(ready)localStorage.setItem("apf-demo-tasks",JSON.stringify(tasks))},[tasks,ready]);
  useEffect(()=>{if(ready)localStorage.setItem("apf-demo-trainings",JSON.stringify(trainings))},[trainings,ready]);
