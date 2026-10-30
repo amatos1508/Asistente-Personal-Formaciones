@@ -10,7 +10,7 @@ type Training={id:string;title:string;client:string;status:string;notes:string;d
 type Entry={id:string;title:string;date:string;time:string;kind:Kind;trainingId?:string};
 type Mode="day"|"week"|"month";
 const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-")};
-const dateOf=(d:Date)=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-")];
+const dateOf=(d:Date)=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
 const uid=()=>Date.now()+"-"+Math.random().toString(16).slice(2);
 const plus=(v:string,n:number)=>{const d=new Date(v+"T12:00:00");d.setDate(d.getDate()+n);return dateOf(d)};
 const monday=(v:string)=>{const d=new Date(v+"T12:00:00");d.setDate(d.getDate()-(d.getDay()+6)%7);return dateOf(d)};
