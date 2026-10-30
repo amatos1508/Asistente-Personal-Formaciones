@@ -1,210 +1,59 @@
 "use client";
-
-import { FormEvent, useEffect, useMemo, useState } from "react";
-
-type Meeting = { id: string; title: string; date: string; time: string; duration: number; place: string; notes: string; reminder: number };
-type Task = { id: string; title: string; due: string; done: boolean };
-type TrainingReschedule = { id: string; reason: string; date: string; time: string; recordedAt: string };
-type Training = { id: string; title: string; client: string; status: string; notes: string; scheduledDate?: string; scheduledTime?: string; reschedules?: TrainingReschedule[] };
-
-const today = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-};
-const tomorrow = () => {
-  const d = new Date(); d.setDate(d.getDate()+1);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-};
-const id = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-export default function Home() {
-  const [section, setSection] = useState("inicio");
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [trainings, setTrainings] = useState<Training[]>([]);
-  const [ready, setReady] = useState(false);
-  const [showMeeting, setShowMeeting] = useState(false);
-  const [showTask, setShowTask] = useState(false);
-  const [showTraining, setShowTraining] = useState(false);
-  const [showReschedule, setShowReschedule] = useState(false);
-  const [reschedulingTrainingId, setReschedulingTrainingId] = useState<string | null>(null);
-  const [rescheduleForm, setRescheduleForm] = useState({ reason:"", date:today(), time:"10:00" });
-  const [notice, setNotice] = useState("");
-  const [meetingForm, setMeetingForm] = useState({ title:"", date:today(), time:"10:00", duration:"60", place:"", notes:"", reminder:"15" });
-  const [taskForm, setTaskForm] = useState({ title:"", due:today() });
-  const [trainingForm, setTrainingForm] = useState({ title:"", client:"", status:"Pendiente", notes:"" });
-
-  useEffect(() => {
-    try {
-      const savedMeetings = localStorage.getItem("apf-demo-meetings");
-      const savedTasks = localStorage.getItem("apf-demo-tasks");
-      const savedTrainings = localStorage.getItem("apf-demo-trainings");
-      if (savedMeetings) setMeetings(JSON.parse(savedMeetings));
-      if (savedTasks) setTasks(JSON.parse(savedTasks));
-      if (savedTrainings) setTrainings(JSON.parse(savedTrainings));
-    } catch { /* Ignore invalid demo data and keep the app usable. */ }
-    setReady(true);
-  }, []);
-  useEffect(() => { if (ready) localStorage.setItem("apf-demo-meetings", JSON.stringify(meetings)); }, [meetings, ready]);
-  useEffect(() => { if (ready) localStorage.setItem("apf-demo-tasks", JSON.stringify(tasks)); }, [tasks, ready]);
-  useEffect(() => { if (ready) localStorage.setItem("apf-demo-trainings", JSON.stringify(trainings)); }, [trainings, ready]);
-
-  useEffect(() => {
-    const check = () => {
-      const now = new Date();
-      meetings.forEach((m) => {
-        const start = new Date(`${m.date}T${m.time}:00`).getTime();
-        const remindAt = start - m.reminder * 60_000;
-        const key = `apf-reminded-${m.id}`;
-        if (Number.isFinite(start) && now.getTime() >= remindAt && now.getTime() < start && !sessionStorage.getItem(key)) {
-          setNotice(`Recordatorio: “${m.title}” empieza en ${m.reminder} minutos.`);
-          sessionStorage.setItem(key, "1");
-        }
-      });
-    };
-    check();
-    const timer = window.setInterval(check, 30_000);
-    return () => window.clearInterval(timer);
-  }, [meetings]);
-
-  const sortedMeetings = useMemo(() => [...meetings].sort((a,b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)), [meetings]);
-  const upcoming = sortedMeetings.filter(m => new Date(`${m.date}T${m.time}:00`).getTime() >= Date.now() - 60*60*1000);
-  const pendingTasks = tasks.filter(t => !t.done);
-  const todayMeetings = upcoming.filter(m => m.date === today());
-  const fmtDate = (value:string) => {
-    if (!value) return "Sin fecha";
-    return new Date(`${value}T12:00:00`).toLocaleDateString("es-ES",{weekday:"short",day:"numeric",month:"short"});
-  };
-
-  function addMeeting(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setMeetings(prev => [...prev, { ...meetingForm, id:id(), duration:Number(meetingForm.duration)||60, reminder:Number(meetingForm.reminder) }]);
-    setMeetingForm({ title:"", date:today(), time:"10:00", duration:"60", place:"", notes:"", reminder:"15" });
-    setShowMeeting(false); setSection("agenda"); setNotice("Reunión guardada en este navegador.");
-  }
-  function addTask(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault(); if (!taskForm.title.trim()) return;
-    setTasks(prev => [...prev, { ...taskForm, id:id(), done:false }]);
-    setTaskForm({ title:"", due:today() }); setShowTask(false); setNotice("Tarea guardada.");
-  }
-  function addTraining(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault(); if (!trainingForm.title.trim()) return;
-    setTrainings(prev => [...prev, { ...trainingForm, id:id() }]);
-    setTrainingForm({ title:"", client:"", status:"Pendiente", notes:"" }); setShowTraining(false); setNotice("Formación guardada en este navegador.");
-  }
-  function openReschedule(training: Training) {
-    setReschedulingTrainingId(training.id);
-    setRescheduleForm({ reason:"", date:training.scheduledDate || today(), time:training.scheduledTime || "10:00" });
-    setShowReschedule(true);
-  }
-  function rescheduleTraining(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const training = trainings.find(item => item.id === reschedulingTrainingId);
-    const reason = rescheduleForm.reason.trim();
-    if (!training || !reason || !rescheduleForm.date || !rescheduleForm.time) return;
-    const change: TrainingReschedule = { id:id(), reason, date:rescheduleForm.date, time:rescheduleForm.time, recordedAt:new Date().toISOString() };
-    setTrainings(prev => prev.map(item => item.id === training.id ? { ...item, scheduledDate:change.date, scheduledTime:change.time, reschedules:[...(item.reschedules || []), change] } : item));
-    setMeetings(prev => [...prev, { id:id(), title:`${training.title} (reprogramada)`, date:change.date, time:change.time, duration:60, place:training.client || "", notes:`Reprogramación: ${reason}`, reminder:15 }]);
-    setShowReschedule(false); setReschedulingTrainingId(null); setNotice("Reprogramación guardada en la ficha y añadida a Mi agenda con recordatorio de 15 minutos.");
-  }
-  function clearDemoData() {
-    if (!window.confirm("¿Quieres borrar del navegador todas las reuniones, tareas y formaciones de prueba? Esta acción no se puede deshacer.")) return;
-    setMeetings([]);
-    setTasks([]);
-    setTrainings([]);
-    Object.keys(sessionStorage)
-      .filter(key => key.startsWith("apf-reminded-"))
-      .forEach(key => sessionStorage.removeItem(key));
-    setNotice("Se han borrado los datos de prueba de este navegador.");
-  }
-
-  const nav = [
-    { id:"inicio", label:"Inicio", icon:"⌂" },
-    { id:"agenda", label:"Mi agenda", icon:"▦" },
-    { id:"formaciones", label:"Mis formaciones", icon:"▤" },
-    { id:"tareas", label:"Tareas", icon:"✓" },
-  ];
-
-  return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <a className="brand" href="#" onClick={(e)=>{e.preventDefault();setSection("inicio")}}>
-          <span className="brand-mark">AF</span><span>asistente<strong> personal</strong></span>
-        </a>
-        <div className="side-caption">ESPACIO PERSONAL</div>
-        <nav className="side-nav" aria-label="Navegación principal">
-          {nav.map(item => <button key={item.id} className={section===item.id?"nav-item active":"nav-item"} onClick={()=>setSection(item.id)}><span className="nav-icon">{item.icon}</span>{item.label}{item.id==="tareas"&&pendingTasks.length>0&&<span className="nav-count">{pendingTasks.length}</span>}</button>)}
-        </nav>
-        <div className="sidebar-bottom">
-          <span className="secure-dot" /> Prototipo personal
-          <p>Los datos de prueba se guardan solo en este navegador.</p>
-        </div>
-      </aside>
-
-      <section className="main-area">
-        <header className="topbar">
-          <div className="breadcrumb">Asistente personal <span>/</span> {nav.find(n=>n.id===section)?.label || "Inicio"}</div>
-          <div className="topbar-right"><span className="today-label">{new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})}</span><span className="avatar">A</span></div>
-        </header>
-
-        {notice && <div className="notice" role="status"><span>ⓘ</span>{notice}<button aria-label="Cerrar aviso" onClick={()=>setNotice("")}>×</button></div>}
-
-        {section==="inicio" && <div className="content">
-          <div className="welcome-row"><div><p className="eyebrow">TU ESPACIO DE TRABAJO</p><h1>Hola, vamos a ponerlo <em>todo en orden.</em></h1><p className="subheading">Reuniones, formaciones y tareas importantes, en un solo lugar.</p></div><button className="button-primary" onClick={()=>setShowMeeting(true)}><span>＋</span> Añadir reunión</button></div>
-          <div className="stats-grid">
-            <article className="stat-card"><div className="stat-top"><span>Reuniones hoy</span><span className="stat-icon lilac">◷</span></div><strong>{todayMeetings.length.toString().padStart(2,"0")}</strong><small>En tu agenda personal</small></article>
-            <article className="stat-card"><div className="stat-top"><span>Formaciones activas</span><span className="stat-icon green">▤</span></div><strong>{trainings.filter(t=>t.status==="En curso").length.toString().padStart(2,"0")}</strong><small>{trainings.length} registradas en total</small></article>
-            <article className="stat-card"><div className="stat-top"><span>Tareas pendientes</span><span className="stat-icon orange">✓</span></div><strong>{pendingTasks.length.toString().padStart(2,"0")}</strong><small>Por completar</small></article>
-          </div>
-          <div className="dashboard-grid">
-            <section className="panel agenda-panel"><div className="panel-heading"><div><p className="section-kicker">TU DÍA</p><h2>Próximas reuniones</h2></div><button className="text-button" onClick={()=>setSection("agenda")}>Ver agenda ↗</button></div>
-              {upcoming.slice(0,4).map(m=><article className="meeting-row" key={m.id}><div className="meeting-date"><strong>{m.date===today()?"HOY":fmtDate(m.date).split(" ")[0].toUpperCase()}</strong><span>{m.date===today()?m.time:fmtDate(m.date).split(" ").slice(1).join(" ")}</span></div><div className="meeting-info"><strong>{m.title}</strong><span>{m.place||"Sin ubicación"} · {m.duration} min</span></div><span className="reminder-chip">{m.reminder} min antes</span><button className="delete-button" aria-label={"Eliminar "+m.title} onClick={()=>setMeetings(prev=>prev.filter(x=>x.id!==m.id))}>×</button></article>)}
-              {upcoming.length===0&&<div className="empty-state"><span className="empty-icon">◷</span><strong>Tu agenda empieza aquí</strong><p>Añade una reunión y te ayudaremos a tenerla presente.</p><button className="button-secondary" onClick={()=>setShowMeeting(true)}>＋ Añadir primera reunión</button></div>}
-            </section>
-            <section className="panel tasks-panel"><div className="panel-heading"><div><p className="section-kicker">NO LO DEJES PARA DESPUÉS</p><h2>Mis tareas</h2></div><button className="icon-button" aria-label="Añadir tarea" onClick={()=>setShowTask(true)}>＋</button></div>
-              {pendingTasks.slice(0,5).map(t=><label className="task-row" key={t.id}><input type="checkbox" checked={t.done} onChange={e=>setTasks(prev=>prev.map(x=>x.id===t.id?{...x,done:e.target.checked}:x))}/><span className="task-copy"><strong>{t.title}</strong><small>Fecha límite: {fmtDate(t.due)}</small></span></label>)}
-              {pendingTasks.length===0&&<div className="empty-state compact"><span className="empty-icon">✓</span><strong>Todo despejado</strong><p>Añade tareas para llevar el seguimiento de tus gestiones.</p></div>}
-              <button className="button-secondary full-button" onClick={()=>{setSection("tareas");setShowTask(true)}}>＋ Añadir tarea</button>
-            </section>
-          </div>
-          <section className="quick-actions"><div><p className="section-kicker">ACCESOS RÁPIDOS</p><h2>¿Qué necesitas hacer?</h2></div><div className="quick-grid"><button onClick={()=>setShowMeeting(true)}><span className="quick-icon lilac">◷</span><span><strong>Programar reunión</strong><small>Guarda una fecha y un recordatorio</small></span><b>↗</b></button><button onClick={()=>setShowTraining(true)}><span className="quick-icon green">▤</span><span><strong>Registrar formación</strong><small>Abre una ficha de seguimiento</small></span><b>↗</b></button><button onClick={()=>{setSection("tareas");setShowTask(true)}}><span className="quick-icon orange">✓</span><span><strong>Añadir tarea</strong><small>Apunta una gestión pendiente</small></span><b>↗</b></button></div></section>
-          <div className="prototype-note"><span>ⓘ</span><p><strong>Prototipo:</strong> las fichas permanecen en este navegador, sin cifrado propio ni sincronización. El acceso al sitio está restringido; aun así, utiliza datos ficticios y no registres datos identificativos de alumnos hasta que se active almacenamiento de servidor con controles de acceso.</p><button type="button" className="button-secondary" onClick={clearDemoData}>Borrar datos de prueba</button></div>
-        </div>}
-
-        {section==="agenda" && <div className="content">
-          <div className="page-title-row"><div><p className="eyebrow">TU ORGANIZACIÓN</p><h1>Mi agenda</h1><p className="subheading">Añade tus reuniones manualmente y configura los recordatorios.</p></div><button className="button-primary" onClick={()=>setShowMeeting(true)}>＋ Añadir reunión</button></div>
-          <section className="panel list-panel"><div className="panel-heading"><div><p className="section-kicker">COMPROMISOS REGISTRADOS</p><h2>Próximas reuniones</h2></div><span className="pill">{upcoming.length} reuniones</span></div>
-          {sortedMeetings.map(m=><article className="meeting-row agenda-full-row" key={m.id}><div className="meeting-date"><strong>{fmtDate(m.date).split(" ")[0].toUpperCase()}</strong><span>{m.time}</span></div><div className="meeting-info"><strong>{m.title}</strong><span>{fmtDate(m.date)} · {m.duration} min · {m.place||"Sin ubicación"}</span>{m.notes&&<small>{m.notes}</small>}</div><span className="reminder-chip">{m.reminder} min antes</span><button className="delete-button" onClick={()=>setMeetings(prev=>prev.filter(x=>x.id!==m.id))} aria-label={"Eliminar "+m.title}>×</button></article>)}
-          {sortedMeetings.length===0&&<div className="empty-state"><span className="empty-icon">◷</span><strong>No has añadido reuniones</strong><p>Cuando registres una reunión, aparecerá aquí.</p><button className="button-secondary" onClick={()=>setShowMeeting(true)}>＋ Añadir reunión</button></div>}
-          </section>
-        </div>}
-
-        {section==="formaciones" && <div className="content">
-          <div className="page-title-row"><div><p className="eyebrow">SEGUIMIENTO PERSONAL</p><h1>Mis formaciones</h1><p className="subheading">Registra las formaciones que te asignan y añade notas iniciales.</p></div><button className="button-primary" onClick={()=>setShowTraining(true)}>＋ Nueva formación</button></div>
-          <section className="panel list-panel"><div className="panel-heading"><div><p className="section-kicker">TU HISTORIAL</p><h2>Formaciones registradas</h2></div><span className="pill">{trainings.length} formaciones</span></div>
-          {trainings.map(t=><article className="training-row" key={t.id}><div className="training-mark">F</div><div className="training-info"><strong>{t.title}</strong><span>{t.client||"Sin cliente indicado"}</span>{t.notes&&<small>{t.notes}</small>}{t.scheduledDate&&<small>Próxima fecha: {fmtDate(t.scheduledDate)} · {t.scheduledTime}</small>}{(t.reschedules||[]).length>0&&<small className="reschedule-history">Historial: {(t.reschedules||[]).map((r,index)=><span key={r.id}>{index>0?" · ":""}{fmtDate(r.date)} {r.time}: {r.reason}</span>)}</small>}</div><select value={t.status} aria-label={"Estado de "+t.title} onChange={e=>setTrainings(prev=>prev.map(x=>x.id===t.id?{...x,status:e.target.value}:x))}><option>Pendiente</option><option>En curso</option><option>Completada</option><option>Cancelada</option></select><div className="training-actions"><button type="button" className="button-secondary" onClick={()=>openReschedule(t)}>Reprogramar</button><button className="delete-button" aria-label={"Eliminar "+t.title} onClick={()=>setTrainings(prev=>prev.filter(x=>x.id!==t.id))}>×</button></div></article>)}
-          {trainings.length===0&&<div className="empty-state"><span className="empty-icon">▤</span><strong>Aún no hay formaciones</strong><p>Registra una formación para empezar a organizar sus notas y seguimiento.</p><button className="button-secondary" onClick={()=>setShowTraining(true)}>＋ Registrar formación</button></div>}
-          </section>
-        </div>}
-
-        {section==="tareas" && <div className="content">
-          <div className="page-title-row"><div><p className="eyebrow">ORGANIZA TUS GESTIONES</p><h1>Mis tareas</h1><p className="subheading">Ten a mano las cosas que necesitas completar.</p></div><button className="button-primary" onClick={()=>setShowTask(true)}>＋ Añadir tarea</button></div>
-          <section className="panel list-panel"><div className="panel-heading"><div><p className="section-kicker">LISTA PERSONAL</p><h2>Tareas pendientes y completadas</h2></div><span className="pill">{pendingTasks.length} pendientes</span></div>
-          {tasks.map(t=><div className={"task-row task-list-row "+(t.done?"task-done":"")} key={t.id}><input type="checkbox" checked={t.done} onChange={e=>setTasks(prev=>prev.map(x=>x.id===t.id?{...x,done:e.target.checked}:x))}/><span className="task-copy"><strong>{t.title}</strong><small>Fecha límite: {fmtDate(t.due)}</small></span><button className="delete-button" aria-label={"Eliminar "+t.title} onClick={()=>setTasks(prev=>prev.filter(x=>x.id!==t.id))}>×</button></div>)}
-          {tasks.length===0&&<div className="empty-state"><span className="empty-icon">✓</span><strong>No hay tareas todavía</strong><p>Añade una gestión pendiente para empezar.</p><button className="button-secondary" onClick={()=>setShowTask(true)}>＋ Añadir tarea</button></div>}
-          </section>
-        </div>}
-      </section>
-
-      {(showMeeting||showTask||showTraining||showReschedule)&&<div className="modal-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget){setShowMeeting(false);setShowTask(false);setShowTraining(false);setShowReschedule(false)}}}>
-        <section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-          <div className="modal-header"><div><p className="section-kicker">ASISTENTE PERSONAL</p><h2 id="modal-title">{showReschedule?"Reprogramar formación":showMeeting?"Añadir reunión":showTask?"Añadir tarea":"Registrar formación"}</h2></div><button className="icon-button" onClick={()=>{setShowMeeting(false);setShowTask(false);setShowTraining(false)}} aria-label="Cerrar">×</button></div>
-          {showMeeting&&<form onSubmit={addMeeting} className="form-stack"><label>Título de la reunión<input required autoFocus value={meetingForm.title} onChange={e=>setMeetingForm({...meetingForm,title:e.target.value})} placeholder="Ej. Revisión de proyecto"/></label><div className="form-grid"><label>Fecha<input required type="date" value={meetingForm.date} onChange={e=>setMeetingForm({...meetingForm,date:e.target.value})}/></label><label>Hora<input required type="time" value={meetingForm.time} onChange={e=>setMeetingForm({...meetingForm,time:e.target.value})}/></label><label>Duración (minutos)<input min="5" step="5" type="number" value={meetingForm.duration} onChange={e=>setMeetingForm({...meetingForm,duration:e.target.value})}/></label><label>Recordatorio<select value={meetingForm.reminder} onChange={e=>setMeetingForm({...meetingForm,reminder:e.target.value})}><option value="5">5 minutos antes</option><option value="15">15 minutos antes</option><option value="30">30 minutos antes</option><option value="60">1 hora antes</option></select></label></div><label>Ubicación o enlace<input value={meetingForm.place} onChange={e=>setMeetingForm({...meetingForm,place:e.target.value})} placeholder="Sala, dirección o enlace"/></label><label>Notas (opcional)<textarea rows={3} value={meetingForm.notes} onChange={e=>setMeetingForm({...meetingForm,notes:e.target.value})} placeholder="Temas a tratar..."/></label><div className="modal-actions"><button type="button" className="button-secondary" onClick={()=>setShowMeeting(false)}>Cancelar</button><button className="button-primary" type="submit">Guardar reunión</button></div></form>}
-          {showTask&&<form onSubmit={addTask} className="form-stack"><label>¿Qué tienes que hacer?<input required autoFocus value={taskForm.title} onChange={e=>setTaskForm({...taskForm,title:e.target.value})} placeholder="Ej. Enviar correo de cierre"/></label><label>Fecha límite<input required type="date" value={taskForm.due} onChange={e=>setTaskForm({...taskForm,due:e.target.value})}/></label><div className="modal-actions"><button type="button" className="button-secondary" onClick={()=>setShowTask(false)}>Cancelar</button><button className="button-primary" type="submit">Guardar tarea</button></div></form>}
-          {showReschedule&&<form onSubmit={rescheduleTraining} className="form-stack"><p className="subheading">Indica por qué cambia y cuándo tendrá lugar. La fecha aparecerá en Mi agenda.</p><label>Justificación<input required autoFocus maxLength={500} value={rescheduleForm.reason} onChange={e=>setRescheduleForm({...rescheduleForm,reason:e.target.value})} placeholder="Ej. indisponibilidad del formador"/></label><div className="form-grid"><label>Nueva fecha<input required type="date" value={rescheduleForm.date} onChange={e=>setRescheduleForm({...rescheduleForm,date:e.target.value})}/></label><label>Hora<input required type="time" value={rescheduleForm.time} onChange={e=>setRescheduleForm({...rescheduleForm,time:e.target.value})}/></label></div><div className="modal-actions"><button type="button" className="button-secondary" onClick={()=>setShowReschedule(false)}>Cancelar</button><button className="button-primary" type="submit">Guardar y añadir a agenda</button></div></form>}
-          {showTraining&&<form onSubmit={addTraining} className="form-stack"><label>Nombre de la formación<input required autoFocus value={trainingForm.title} onChange={e=>setTrainingForm({...trainingForm,title:e.target.value})} placeholder="Ej. SOLIDWORKS Electrical básico"/></label><label>Cliente (opcional)<input value={trainingForm.client} onChange={e=>setTrainingForm({...trainingForm,client:e.target.value})} placeholder="Empresa o cliente"/></label><label>Estado<select value={trainingForm.status} onChange={e=>setTrainingForm({...trainingForm,status:e.target.value})}><option>Pendiente</option><option>En curso</option><option>Completada</option><option>Cancelada</option></select></label><label>Notas iniciales<textarea rows={3} value={trainingForm.notes} onChange={e=>setTrainingForm({...trainingForm,notes:e.target.value})} placeholder="Objetivos, temas o detalles..."/></label><div className="modal-actions"><button type="button" className="button-secondary" onClick={()=>setShowTraining(false)}>Cancelar</button><button className="button-primary" type="submit">Guardar formación</button></div></form>}
-        </section>
-      </div>}
-    </main>
-  );
+import {FormEvent,useEffect,useMemo,useState} from "react";
+type Kind="Reunión"|"Formación"|"Baja"|"Vacaciones"|"Otro";
+type Activity={id:string;title:string;date:string;endDate?:string;time:string;duration:number;place:string;notes:string;reminder:number;type?:Kind};
+type Task={id:string;title:string;due:string;done:boolean};
+type Day={id:string;date:string;start:string;end:string;notes:string};
+type Student={id:string;name:string;email:string;code:string;result:"Pendiente"|"Aprobado"|"No aprobado"};
+type Change={id:string;dayId:string;reason:string;oldDate:string;date:string;time:string};
+type Training={id:string;title:string;client:string;status:string;notes:string;days?:Day[];students?:Student[];changes?:Change[]};
+type Entry={id:string;title:string;date:string;time:string;kind:Kind;trainingId?:string};
+type Mode="day"|"week"|"month";
+const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-")};
+const dateOf=(d:Date)=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).join("-")];
+const uid=()=>Date.now()+"-"+Math.random().toString(16).slice(2);
+const plus=(v:string,n:number)=>{const d=new Date(v+"T12:00:00");d.setDate(d.getDate()+n);return dateOf(d)};
+const monday=(v:string)=>{const d=new Date(v+"T12:00:00");d.setDate(d.getDate()-(d.getDay()+6)%7);return dateOf(d)};
+const fmt=(v:string,opts:Intl.DateTimeFormatOptions={weekday:"short",day:"numeric",month:"short"})=>new Date(v+"T12:00:00").toLocaleDateString("es-ES",opts);
+export default function Home(){
+ const[section,S]=useState("inicio"),[activities,A]=useState<Activity[]>([]),[tasks,T]=useState<Task[]>([]),[trainings,F]=useState<Training[]>([]),[ready,R]=useState(false),[notice,N]=useState("");
+ const[mode,M]=useState<Mode>("month"),[cursor,C]=useState(today()),[selected,Q]=useState<string|null>(null);
+ const[activityOpen,AO]=useState(false),[trainingOpen,FO]=useState(false),[taskOpen,TO]=useState(false),[changeOpen,CO]=useState(false);
+ const[target,XT]=useState<{trainingId:string;dayId:string}|null>(null);
+ const[af,SA]=useState({title:"",type:"Reunión" as Kind,date:today(),endDate:today(),time:"10:00",duration:"60",place:"",notes:"",reminder:"15"});
+ const[tf,ST]=useState({title:"",client:"",date:today(),start:"09:00",end:"15:00"});
+ const[taskForm,STF]=useState({title:"",due:today()}),[cf,SC]=useState({reason:"",date:today(),time:"09:00"});
+ useEffect(()=>{try{const a=localStorage.getItem("apf-demo-meetings"),t=localStorage.getItem("apf-demo-tasks"),f=localStorage.getItem("apf-demo-trainings");if(a)A(JSON.parse(a));if(t)T(JSON.parse(t));if(f)F((JSON.parse(f) as Training[]).map(x=>({...x,days:x.days||[],students:x.students||[],changes:x.changes||x.reschedules||[]})))}catch{}R(true)},[]);
+ useEffect(()=>{if(ready)localStorage.setItem("apf-demo-meetings",JSON.stringify(activities))},[activities,ready]);
+ useEffect(()=>{if(ready)localStorage.setItem("apf-demo-tasks",JSON.stringify(tasks))},[tasks,ready]);
+ useEffect(()=>{if(ready)localStorage.setItem("apf-demo-trainings",JSON.stringify(trainings))},[trainings,ready]);
+ const entries=useMemo<Entry[]>(()=>[...activities.map(a=>({id:a.id,title:a.title,date:a.date,time:a.time,kind:a.type||"Reunión",...((a.type==="Vacaciones"||a.type==="Baja")?{}:{})})),...trainings.flatMap(f=>(f.days||[]).map(d=>({id:d.id,title:f.title,date:d.date,time:d.start,kind:"Formación" as Kind,trainingId:f.id})))].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)),[activities,trainings]);
+ const active=trainings.find(t=>t.id===selected)||null,pending=tasks.filter(t=>!t.done);
+ const days=useMemo(()=>{if(mode==="day")return[cursor];if(mode==="week")return Array.from({length:7},(_,i)=>plus(monday(cursor),i));const first=new Date(cursor.slice(0,7)+"-01T12:00:00");return Array.from({length:42},(_,i)=>plus(plus(dateOf(first),-((first.getDay()+6)%7)),i))},[cursor,mode]);
+ const shift=(n:number)=>{if(mode==="day")C(plus(cursor,n));else if(mode==="week")C(plus(cursor,n*7));else{const d=new Date(cursor+"T12:00:00");d.setMonth(d.getMonth()+n);C(dateOf(d))}};
+ const patch=(id:string,p:Partial<Training>)=>F(xs=>xs.map(x=>x.id===id?{...x,...p}:x));
+ const addActivity=(e:FormEvent)=>{e.preventDefault();A(xs=>[...xs,{...af,id:uid(),duration:Number(af.duration)||60,reminder:Number(af.reminder),endDate:af.endDate}]);AO(false);N("Actividad guardada en Mi agenda.")};
+ const addTraining=(e:FormEvent)=>{e.preventDefault();const d:Day={id:uid(),date:tf.date,start:tf.start,end:tf.end,notes:""};F(xs=>[...xs,{id:uid(),title:tf.title.trim(),client:tf.client,status:"Pendiente",notes:"",days:[d],students:[],changes:[]}]);FO(false);S("agenda");C(d.date);N("Formación añadida al calendario. Completa su ficha en Mis formaciones.")};
+ const addTask=(e:FormEvent)=>{e.preventDefault();T(xs=>[...xs,{...taskForm,id:uid(),done:false}]);TO(false);N("Tarea guardada.")};
+ const editDay=(f:Training,d:Day,p:Partial<Day>)=>patch(f.id,{days:(f.days||[]).map(x=>x.id===d.id?{...x,...p}:x)});
+ const openChange=(f:Training,d:Day)=>{XT({trainingId:f.id,dayId:d.id});SC({reason:"",date:d.date,time:d.start});CO(true)};
+ const saveChange=(e:FormEvent)=>{e.preventDefault();if(!target)return;const f=trainings.find(x=>x.id===target.trainingId),d=f?.days?.find(x=>x.id===target.dayId),reason=cf.reason.trim();if(!f||!d||!reason)return;const c:Change={id:uid(),dayId:d.id,reason,oldDate:d.date,date:cf.date,time:cf.time};patch(f.id,{days:(f.days||[]).map(x=>x.id===d.id?{...x,date:cf.date,start:cf.time}:x),changes:[...(f.changes||[]),c]});CO(false);N("Sesión reprogramada; el calendario ya refleja la nueva fecha.")};
+ const calendar=(home=false)=>{const heading=new Date(cursor+"T12:00:00").toLocaleDateString("es-ES",{month:"long",year:"numeric"});return <section className={"panel calendar "+(home?"home-calendar":"")}><div className="calendar-toolbar"><div><p className="section-kicker">{home?"TU CALENDARIO":"AGENDA PERSONAL"}</p><h2>{heading}</h2></div><div className="calendar-controls"><button className="button-secondary" onClick={()=>shift(-1)} aria-label="Anterior">‹</button><button className="button-secondary" onClick={()=>C(today())}>Hoy</button><button className="button-secondary" onClick={()=>shift(1)} aria-label="Siguiente">›</button><div className="view-switch">{(["day","week","month"] as Mode[]).map(v=><button className={mode===v?"selected":""} key={v} onClick={()=>M(v)}>{v==="day"?"Día":v==="week"?"Semana":"Mes"}</button>)}</div></div></div>{mode!=="day"&&<div className="weekday-headings">{["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"].map(x=><span key={x}>{x}</span>)}</div>}<div className={"calendar-grid "+(mode==="month"?"month-grid":mode==="week"?"week-grid":"one-day")}>{days.map(d=><div className={"calendar-day "+(d===today()?"today":"")} key={d}><button className="calendar-day-number" onClick={()=>{C(d);M("day");if(home)S("agenda")}}>{mode==="day"?fmt(d,{weekday:"long",day:"numeric",month:"long"}):fmt(d,{day:"numeric"})}</button><div className="calendar-events">{entries.filter(x=>x.date===d||activities.some(a=>a.id===x.id&&(a.type==="Baja"||a.type==="Vacaciones")&&a.date<=d&&(a.endDate||a.date)>=d)).slice(0,home?3:8).map(x=><button key={x.id} className={"calendar-event ev-"+x.kind.toLowerCase()} onClick={()=>{if(x.trainingId){Q(x.trainingId);S("formaciones")}}}>{x.time?x.time+" · ":""}{x.title}</button>)}</div></div>)}</div>{home&&<button className="text-button" onClick={()=>S("agenda")}>Abrir Mi agenda ↗</button>}</section>};
+ const nav=[["inicio","Inicio","⌂"],["agenda","Mi agenda","▦"],["formaciones","Mis formaciones","▤"],["tareas","Tareas","✓"]];
+ const close=()=>{AO(false);FO(false);TO(false);CO(false)};
+ return <main className="app-shell"><aside className="sidebar"><a className="brand" href="#" onClick={e=>{e.preventDefault();S("inicio");Q(null)}}><span className="brand-mark">AF</span><span>asistente<strong> personal</strong></span></a><div className="side-caption">ESPACIO PERSONAL</div><nav className="side-nav">{nav.map(([id,label,icon])=><button key={id} className={section===id?"nav-item active":"nav-item"} onClick={()=>{S(id);if(id!=="formaciones")Q(null)}}><span className="nav-icon">{icon}</span>{label}</button>)}</nav><div className="sidebar-bottom"><span className="secure-dot"/> Prototipo personal<p>Datos guardados solo en este navegador.</p></div></aside>
+ <section className="main-area"><header className="topbar"><div className="breadcrumb">Asistente personal <span>/</span> {nav.find(x=>x[0]===section)?.[1]}</div><span className="today-label">{new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})}</span></header>
+ {notice&&<div className="notice" role="status">ⓘ {notice}<button onClick={()=>N("")}>×</button></div>}
+ {section==="inicio"&&<div className="content"><div className="welcome-row"><div><p className="eyebrow">TU ESPACIO DE TRABAJO</p><h1>Hola, vamos a ponerlo <em>todo en orden.</em></h1><p className="subheading">Reuniones, formaciones, ausencias y vacaciones en tu calendario.</p></div><button className="button-primary" onClick={()=>{S("agenda");AO(true)}}>＋ Añadir actividad</button></div><div className="stats-grid"><article className="stat-card"><div className="stat-top">Actividades hoy</div><strong>{entries.filter(x=>x.date===today()).length.toString().padStart(2,"0")}</strong><small>En tu agenda</small></article><article className="stat-card"><div className="stat-top">Formaciones activas</div><strong>{trainings.filter(x=>x.status==="En curso").length.toString().padStart(2,"0")}</strong><small>{trainings.length} registradas</small></article><article className="stat-card"><div className="stat-top">Tareas pendientes</div><strong>{pending.length.toString().padStart(2,"0")}</strong><small>Por completar</small></article></div>{calendar(true)}<div className="prototype-note"><span>ⓘ</span><p><strong>Prototipo:</strong> los datos permanecen en este navegador, sin cifrado propio ni sincronización. Usa datos ficticios; no registres información identificativa real de alumnos.</p><button className="button-secondary" onClick={()=>{if(confirm("¿Borrar todos los datos de prueba de este navegador?")){A([]);T([]);F([]);N("Datos de prueba borrados.")}}}>Borrar datos de prueba</button></div></div>}
+ {section==="agenda"&&<div className="content"><div className="page-title-row"><div><p className="eyebrow">PLANIFICACIÓN PERSONAL</p><h1>Mi agenda</h1><p className="subheading">Un calendario para reuniones, formaciones, bajas y vacaciones.</p></div><div className="agenda-actions"><button className="button-secondary" onClick={()=>AO(true)}>＋ Añadir actividad</button><button className="button-primary" onClick={()=>FO(true)}>＋ Agendar formación</button></div></div>{calendar()}<section className="panel list-panel"><div className="panel-heading"><div><p className="section-kicker">AGENDA</p><h2>Próximas actividades</h2></div></div>{entries.filter(x=>x.date>=today()).slice(0,15).map(x=><button className="agenda-entry" key={x.id} onClick={()=>{if(x.trainingId){Q(x.trainingId);S("formaciones")}}}><span className={"activity-dot ev-"+x.kind.toLowerCase()}/><span><strong>{x.title}</strong><small>{fmt(x.date)} · {x.time||"Todo el día"}</small></span><span className="pill">{x.kind}</span></button>)}</section></div>}
+ {section==="formaciones"&&<div className="content">{active?<><button className="text-button" onClick={()=>Q(null)}>← Volver a todas las formaciones</button><div className="page-title-row"><div><p className="eyebrow">FICHA DE FORMACIÓN</p><h1>{active.title}</h1></div><select value={active.status} onChange={e=>patch(active.id,{status:e.target.value})}><option>Pendiente</option><option>En curso</option><option>Completada</option><option>Cancelada</option></select></div><section className="panel detail-panel"><div className="detail-grid"><label>Nombre<input value={active.title} onChange={e=>patch(active.id,{title:e.target.value})}/></label><label>Empresa o cliente<input value={active.client} onChange={e=>patch(active.id,{client:e.target.value})}/></label><label className="wide-field">Notas generales<textarea rows={3} value={active.notes} onChange={e=>patch(active.id,{notes:e.target.value})} placeholder="Información para el seguimiento o el correo de cierre"/></label></div></section><section className="panel detail-panel"><div className="panel-heading"><div><p className="section-kicker">SESIONES</p><h2>Fechas, horarios y notas por día</h2></div><button className="button-secondary" onClick={()=>patch(active.id,{days:[...(active.days||[]),{id:uid(),date:today(),start:"09:00",end:"15:00",notes:""}]})}>＋ Añadir día</button></div>{(active.days||[]).map((d,i)=><article className="session-card" key={d.id}><div className="session-heading"><strong>Día {i+1} · {fmt(d.date,{weekday:"long",day:"numeric",month:"long"})}</strong><button className="button-secondary" onClick={()=>openChange(active,d)}>Reprogramar</button></div><div className="form-grid"><label>Fecha<input type="date" value={d.date} onChange={e=>editDay(active,d,{date:e.target.value})}/></label><label>Inicio<input type="time" value={d.start} onChange={e=>editDay(active,d,{start:e.target.value})}/></label><label>Fin<input type="time" value={d.end} onChange={e=>editDay(active,d,{end:e.target.value})}/></label></div><label className="day-notes">Notas del día<textarea rows={3} value={d.notes} onChange={e=>editDay(active,d,{notes:e.target.value})} placeholder="Temas, acuerdos o incidencias"/></label></article>)}</section><section className="panel detail-panel"><div className="panel-heading"><div><p className="section-kicker">ALUMNOS Y CERTIFICACIÓN</p><h2>Participantes</h2></div><button className="button-secondary" onClick={()=>patch(active.id,{students:[...(active.students||[]),{id:uid(),name:"",email:"",code:"",result:"Pendiente"}]})}>＋ Añadir alumno</button></div>{(active.students||[]).map((s,i)=><div className="student-row" key={s.id}><strong>Alumno {i+1}</strong><label>Nombre<input value={s.name} onChange={e=>patch(active.id,{students:active.students!.map(x=>x.id===s.id?{...x,name:e.target.value}:x)})}/></label><label>Correo<input type="email" value={s.email} onChange={e=>patch(active.id,{students:active.students!.map(x=>x.id===s.id?{...x,email:e.target.value}:x)})}/></label><label>Código certificación<input value={s.code} onChange={e=>patch(active.id,{students:active.students!.map(x=>x.id===s.id?{...x,code:e.target.value}:x)})}/></label><label>Resultado<select value={s.result} onChange={e=>patch(active.id,{students:active.students!.map(x=>x.id===s.id?{...x,result:e.target.value as Student["result"]}:x)})}><option>Pendiente</option><option>Aprobado</option><option>No aprobado</option></select></label><button className="delete-button" onClick={()=>patch(active.id,{students:active.students!.filter(x=>x.id!==s.id)})}>×</button></div>)}</section>{(active.changes||[]).length>0&&<section className="panel detail-panel"><h2>Historial de reprogramaciones</h2>{active.changes!.map(x=><p key={x.id}>{fmt(x.oldDate)} → {fmt(x.date)} {x.time} · {x.reason}</p>)}</section>}</>:<><div className="page-title-row"><div><p className="eyebrow">SEGUIMIENTO PERSONAL</p><h1>Mis formaciones</h1><p className="subheading">Abre una ficha para consultar y editar todos sus detalles.</p></div></div><section className="panel list-panel"><div className="panel-heading"><h2>Todas las formaciones</h2><span className="pill">{trainings.length}</span></div>{trainings.map(f=><button className="training-card" key={f.id} onClick={()=>Q(f.id)}><span className="training-mark">F</span><span className="training-summary"><strong>{f.title}</strong><small>{f.client||"Sin cliente"} · {(f.days||[]).length} días · {(f.students||[]).length} alumnos</small><small>{f.status}</small></span><b>Abrir ficha ↗</b></button>)}{trainings.length===0&&<div className="empty-state"><strong>Aún no hay formaciones</strong><p>Agéndalas desde Mi agenda. Aquí completas su información y seguimiento.</p><button className="button-secondary" onClick={()=>{S("agenda");FO(true)}}>＋ Ir a Mi agenda</button></div>}</section></>}</div>}
+ {section==="tareas"&&<div className="content"><div className="page-title-row"><div><p className="eyebrow">ORGANIZA TUS GESTIONES</p><h1>Mis tareas</h1></div><button className="button-primary" onClick={()=>TO(true)}>＋ Añadir tarea</button></div><section className="panel list-panel">{tasks.map(t=><div className="task-row" key={t.id}><input type="checkbox" checked={t.done} onChange={e=>T(xs=>xs.map(x=>x.id===t.id?{...x,done:e.target.checked}:x))}/><span className="task-copy"><strong>{t.title}</strong><small>Fecha límite: {fmt(t.due)}</small></span></div>)}{tasks.length===0&&<div className="empty-state">No hay tareas todavía</div>}</section></div>}
+ </section>
+ {(activityOpen||trainingOpen||taskOpen||changeOpen)&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget){AO(false);FO(false);TO(false);CO(false)}}}><section className="modal" role="dialog" aria-modal="true"><div className="modal-header"><h2>{changeOpen?"Reprogramar sesión":activityOpen?"Añadir actividad":trainingOpen?"Agendar formación":"Añadir tarea"}</h2><button className="icon-button" onClick={()=>{AO(false);FO(false);TO(false);CO(false)}}>×</button></div>
+ {activityOpen&&<form className="form-stack" onSubmit={addActivity}><label>Tipo<select value={af.type} onChange={e=>SA({...af,type:e.target.value as Kind})}><option>Reunión</option><option>Formación</option><option>Baja</option><option>Vacaciones</option><option>Otro</option></select></label><label>Nombre o motivo<input required value={af.title} onChange={e=>SA({...af,title:e.target.value})}/></label><div className="form-grid"><label>Desde<input type="date" value={af.date} onChange={e=>SA({...af,date:e.target.value,endDate:e.target.value>af.endDate?e.target.value:af.endDate})}/></label><label>Hasta<input type="date" min={af.date} value={af.endDate} onChange={e=>SA({...af,endDate:e.target.value})}/></label>{af.type!=="Baja"&&af.type!=="Vacaciones"&&<label>Hora<input type="time" value={af.time} onChange={e=>SA({...af,time:e.target.value})}/></label>}</div><label>Detalle o ubicación<input value={af.place} onChange={e=>SA({...af,place:e.target.value})}/></label><label>Notas<textarea rows={3} value={af.notes} onChange={e=>SA({...af,notes:e.target.value})}/></label>{af.type==="Reunión"&&<label>Recordatorio<select value={af.reminder} onChange={e=>SA({...af,reminder:e.target.value})}><option value="15">15 minutos antes</option><option value="30">30 minutos antes</option><option value="60">1 hora antes</option></select></label>}<div className="modal-actions"><button type="button" className="button-secondary" onClick={()=>AO(false)}>Cancelar</button><button className="button-primary">Guardar en agenda</button></div></form>}
+ {trainingOpen&&<form className="form-stack" onSubmit={addTraining}><label>Nombre de la formación<input required value={tf.title} onChange={e=>ST({...tf,title:e.target.value})}/></label><label>Empresa o cliente<input value={tf.client} onChange={e=>ST({...tf,client:e.target.value})}/></label><div className="form-grid"><label>Fecha<input type="date" value={tf.date} onChange={e=>ST({...tf,date:e.target.value})}/></label><label>Inicio<input type="time" value={tf.start} onChange={e=>ST({...tf,start:e.target.value})}/></label><label>Fin<input type="time" value={tf.end} onChange={e=>ST({...tf,end:e.target.value})}/></label></div><p className="subheading">Añade las demás jornadas, notas y alumnos desde la ficha de Mis formaciones.</p><div className="modal-actions"><button type="button" className="button-secondary" onClick={()=>FO(false)}>Cancelar</button><button className="button-primary">Guardar formación</button></div></form>}
+ {taskOpen&&<form className="form-stack" onSubmit={addTask}><label>Tarea<input required value={taskForm.title} onChange={e=>STF({...taskForm,title:e.target.value})}/></label><label>Fecha límite<input type="date" value={taskForm.due} onChange={e=>STF({...taskForm,due:e.target.value})}/></label><div className="modal-actions"><button type="button" className="button-secondary" onClick={()=>TO(false)}>Cancelar</button><button className="button-primary">Guardar</button></div></form>}
+ {changeOpen&&<form className="form-stack" onSubmit={saveChange}><label>Justificación<input required maxLength={500} value={cf.reason} onChange={e=>SC({...cf,reason:e.target.value})}/></label><div className="form-grid"><label>Nueva fecha<input type="date" value={cf.date} onChange={e=>SC({...cf,date:e.target.value})}/></label><label>Hora<input type="time" value={cf.time} onChange={e=>SC({...cf,time:e.target.value})}/></label></div><div className="modal-actions"><button type="button" className="button-secondary" onClick={()=>CO(false)}>Cancelar</button><button className="button-primary">Guardar reprogramación</button></div></form>}
+ </section></div>}
+ </main>
 }
