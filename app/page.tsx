@@ -10,7 +10,7 @@ type Training={id:string;title:string;client:string;status:string;notes:string;d
 type Entry={id:string;title:string;date:string;time:string;kind:Kind;trainingId?:string};
 type Mode="day"|"week"|"month";
 const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-")};
-const dateOf=(d:Date)=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).join("-")];
+const dateOf=(d:Date)=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-")];
 const uid=()=>Date.now()+"-"+Math.random().toString(16).slice(2);
 const plus=(v:string,n:number)=>{const d=new Date(v+"T12:00:00");d.setDate(d.getDate()+n);return dateOf(d)};
 const monday=(v:string)=>{const d=new Date(v+"T12:00:00");d.setDate(d.getDate()-(d.getDay()+6)%7);return dateOf(d)};
@@ -27,6 +27,7 @@ export default function Home(){
  useEffect(()=>{if(ready)localStorage.setItem("apf-demo-meetings",JSON.stringify(activities))},[activities,ready]);
  useEffect(()=>{if(ready)localStorage.setItem("apf-demo-tasks",JSON.stringify(tasks))},[tasks,ready]);
  useEffect(()=>{if(ready)localStorage.setItem("apf-demo-trainings",JSON.stringify(trainings))},[trainings,ready]);
+ useEffect(()=>{const check=()=>activities.filter(a=>(a.type||"Reunión")==="Reunión").forEach(a=>{const start=new Date(a.date+"T"+(a.time||"10:00")+":00").getTime(),at=start-(a.reminder||15)*60000,key="apf-reminded-"+a.id;if(Date.now()>=at&&Date.now()<start&&!sessionStorage.getItem(key)){N("Recordatorio: "+a.title+" empieza en "+(a.reminder||15)+" minutos.");sessionStorage.setItem(key,"1")}});check();const timer=window.setInterval(check,30000);return()=>window.clearInterval(timer)},[activities]);
  const entries=useMemo<Entry[]>(()=>[...activities.map(a=>({id:a.id,title:a.title,date:a.date,time:a.time,kind:a.type||"Reunión",...((a.type==="Vacaciones"||a.type==="Baja")?{}:{})})),...trainings.flatMap(f=>(f.days||[]).map(d=>({id:d.id,title:f.title,date:d.date,time:d.start,kind:"Formación" as Kind,trainingId:f.id})))].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)),[activities,trainings]);
  const active=trainings.find(t=>t.id===selected)||null,pending=tasks.filter(t=>!t.done);
  const days=useMemo(()=>{if(mode==="day")return[cursor];if(mode==="week")return Array.from({length:7},(_,i)=>plus(monday(cursor),i));const first=new Date(cursor.slice(0,7)+"-01T12:00:00");return Array.from({length:42},(_,i)=>plus(plus(dateOf(first),-((first.getDay()+6)%7)),i))},[cursor,mode]);
