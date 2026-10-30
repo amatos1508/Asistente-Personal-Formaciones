@@ -24,7 +24,7 @@ export default function Home(){
  const[activityOpen,AO]=useState(false),[trainingOpen,FO]=useState(false),[taskOpen,TO]=useState(false),[changeOpen,CO]=useState(false),[offeringOpen,OO]=useState(false),[catalogEdit,CE]=useState<string|null>(null),[confirmMismatch,CM]=useState(false);
  const[target,XT]=useState<{trainingId:string;dayId:string}|null>(null);
  const[af,SA]=useState({title:"",type:"Reunión" as Kind,date:today(),endDate:today(),time:"10:00",duration:"60",place:"",notes:"",reminder:"15"});
- const[tf,ST]=useState({offeringId:"",client:"",openCourse:false,custom:false,customTitle:"",soldHours:"",days:[{id:uid(),date:today(),start:"09:00",end:"15:00",notes:""}] as Day[]});
+ const[tf,ST]=useState({offeringId:"",client:"",openCourse:false,custom:false,customTitle:"",soldHours:"",days:[{id:"draft-day-1",date:today(),start:"09:00",end:"15:00",notes:""}] as Day[]});
  const[catalogForm,CF]=useState({name:"",abbreviation:"",hours:"",description:""});
  const[taskForm,STF]=useState({title:"",due:today()}),[cf,SC]=useState({reason:"",date:today(),time:"09:00"});
  useEffect(()=>{try{const a=localStorage.getItem("apf-demo-meetings"),t=localStorage.getItem("apf-demo-tasks"),f=localStorage.getItem("apf-demo-trainings"),o=localStorage.getItem("apf-demo-offerings");if(a)A(JSON.parse(a));if(t)T(JSON.parse(t));if(o)O(JSON.parse(o));if(f)F((JSON.parse(f) as Training[]).map(x=>({...x,days:x.days||(x.scheduledDate?[{id:"legacy-"+x.id,date:x.scheduledDate,start:x.scheduledTime||"09:00",end:"15:00",notes:""}]:[]),students:x.students||[],changes:x.changes||x.reschedules?.map(c=>({...c,dayId:"legacy",oldDate:c.oldDate||c.date}))||[]})))}catch{}R(true)},[]);
