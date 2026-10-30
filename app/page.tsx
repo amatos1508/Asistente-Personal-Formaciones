@@ -6,7 +6,7 @@ type Task={id:string;title:string;due:string;done:boolean};
 type Day={id:string;date:string;start:string;end:string;notes:string};
 type Student={id:string;name:string;email:string;code:string;result:"Pendiente"|"Aprobado"|"No aprobado"};
 type Change={id:string;dayId:string;reason:string;oldDate:string;date:string;time:string};
-type Training={id:string;title:string;client:string;status:string;notes:string;days?:Day[];students?:Student[];changes?:Change[]};
+type Training={id:string;title:string;client:string;status:string;notes:string;days?:Day[];students?:Student[];changes?:Change[];reschedules?:Array<{id:string;reason:string;date:string;time:string;oldDate?:string}>};
 type Entry={id:string;title:string;date:string;time:string;kind:Kind;trainingId?:string};
 type Mode="day"|"week"|"month";
 const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-")};
