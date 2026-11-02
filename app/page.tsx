@@ -1,5 +1,5 @@
-import Image from "next/image";
 "use client";
+import Image from "next/image";
 import {ChangeEvent,FormEvent,useEffect,useMemo,useState} from "react";
 type Kind="Reunión"|"Formación"|"Baja"|"Vacaciones"|"Otro";
 type Activity={id:string;title:string;date:string;endDate?:string;time:string;duration:number;place:string;notes:string;reminder:number;type?:Kind};
