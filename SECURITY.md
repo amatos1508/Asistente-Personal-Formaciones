@@ -4,11 +4,12 @@ Este documento define las salvaguardas mínimas para el Asistente Personal de Fo
 
 ## Estado y límites actuales
 
-- Vercel Authentication debe permanecer habilitada para **All Deployments** en el proyecto, tanto para producción como para las URL de previsualización. No crear excepciones públicas ni compartir enlaces de bypass.
-- La interfaz de esta versión guarda reuniones, tareas y fichas en `localStorage`. Ese almacenamiento no tiene cifrado propio, vive en el perfil del navegador y no ofrece control de acceso por registro.
-- Hasta que exista almacenamiento de servidor con autenticación y controles de acceso revisados, se utilizarán exclusivamente datos ficticios. No guardar nombres, correos, asistencia, notas identificativas, resultados o códigos de certificación de alumnos.
-- La conexión actual con Neon se usa únicamente para una comprobación de salud. No se considera que la aplicación tenga persistencia segura de las fichas.
-- El esquema de `db/001_initial_schema.sql` es una propuesta, no una migración aprobada. No ejecutarla ni conectar funciones de escritura hasta completar la puerta de seguridad de base de datos descrita abajo.
+- Vercel Authentication y Neon Auth protegen el acceso; la aplicación además limita el acceso a la dirección configurada en `AETHELTIME_ALLOWED_EMAIL`.
+- La Preview de `security/privacy-hardening` usa la rama `development` de Neon a través de la variable privada `DATABASE_URL` ya gestionada por la integración. No se creó una segunda variable global ni se modificó Producción.
+- La API del servidor obtiene el propietario de la sesión autenticada; nunca acepta un identificador de propietario desde el navegador. La tabla `public.aethel_workspace` guarda el espacio en una fila JSONB por usuario. La política RLS está habilitada y forzada en desarrollo, y el rol `aethel_app_dev` tiene permisos de lectura e inserción/actualización limitados a esa tabla y a su fila.
+- Los datos anteriores del navegador solo se suben si el usuario pulsa **Importar mis datos**. La aplicación conserva por ahora esa copia local; no se borra automáticamente. El guardado sincronizado debe comprobarse en la sesión real antes de incorporar datos identificativos.
+- La base de Producción (`main`) todavía no tiene esta migración ni se ha probado con esta versión. La aplicación no está lista para promoverse a Producción.
+- La vista de Programadas, Agenda, Catálogo y Automatización no usa las tablas del esquema heredado para equipos; no se incorpora planificación de formadores compartida.
 
 ## Clasificación y minimización
 
@@ -33,16 +34,19 @@ Antes de incorporar datos reales:
 - Las fichas del navegador de esta versión son solo de prueba. Usar **Borrar datos de prueba** al terminar una prueba o al dejar un dispositivo compartido.
 - La política CSP con nonce, HSTS, protección contra iframes, control de tipo MIME, política de referente y permisos del navegador deben permanecer activas. Si se añaden analítica, fuentes, almacenamiento, Webex o IA externos, revisar y limitar las directivas antes del despliegue.
 
-## Base de datos: puerta obligatoria antes de guardar datos personales
+## Base de datos y controles pendientes
 
-Antes de aplicar una migración o implementar lecturas/escrituras:
+La Preview dispone de lectura y escritura autenticadas, parámetro SQL por separado, comprobación de origen, límite de tamaño de carga, política RLS basada en el ID autenticado y una credencial de aplicación propia para la rama de desarrollo. La tabla se creó vacía; no se han cargado registros de usuario desde este cambio.
 
-- Habilitar autenticación en la aplicación y validar la sesión en el servidor para cada ruta y operación.
-- Añadir una relación de propietario para cada registro y establecer políticas de seguridad por fila que impidan leer o cambiar datos de otra persona.
-- Usar una credencial de base de datos de privilegio mínimo, solo en el servidor; separar credenciales de desarrollo, previsualización y producción.
-- Revisar permisos SQL, copias de seguridad, restauración, eliminación y retención.
-- Probar explícitamente que un usuario sin sesión recibe rechazo y que un usuario no puede leer, editar ni borrar registros de otro propietario.
-- No confiar solo en controles de interfaz o en filtros enviados por el cliente.
+Antes de promover el código o guardar datos personales reales:
+
+1. Probar en la Preview el inicio de sesión, la importación explícita, el guardado, la recarga y la lectura con la misma cuenta; comprobar el rechazo de una sesión no autenticada.
+2. Crear y aplicar una migración equivalente en `main` con un rol de aplicación específico para Producción y revisar permisos/RLS allí. No reutilizar el rol ni la conexión de desarrollo.
+3. Mantener la conexión privada de base de datos solo en el servidor; verificar accesos, copias de seguridad, restauración y retención.
+4. Decidir y probar el borrado de la copia de `localStorage` después de confirmar que la copia de Neon está completa.
+5. Revisar minimización, base jurídica, transparencia, contratos de encargado, retención y gestión de derechos antes de cargar datos de alumnos.
+
+Las comprobaciones de compilación y del rol/RLS en la base de desarrollo no equivalen a una prueba de extremo a extremo con una sesión de usuario ni a una auditoría de seguridad.
 
 ## Secretos y dependencias
 

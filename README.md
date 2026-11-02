@@ -8,9 +8,9 @@ Aplicación de uso individual para organizar el trabajo diario, las formaciones 
 - Paleta: azul profundo `#1A1A2E`, cian `#00D4FF`, magenta suave `#FF2E63`, blanco y gris claro.
 
 ## Acceso y protección de datos
-- Requisito pendiente: acceso de usuario con nombre de usuario y contraseña, con autenticación gestionada; no guardar contraseñas en el código ni en texto plano.
-- Estado actual: la app todavía no tiene inicio de sesión y guarda los datos en `localStorage` del navegador. El acceso desde una cuenta no cifraría ni protegería por sí solo esos registros en el dispositivo.
-- Antes de usar datos identificables de alumnos, la autenticación y el almacenamiento deberán aplicar controles de acceso del lado del servidor y asociar cada registro a la cuenta correcta.
+- El inicio de sesión lo gestiona Neon Auth y el acceso de la aplicación se limita a la cuenta permitida en la configuración privada.
+- La Preview de la rama `security/privacy-hardening` lee y guarda el espacio de trabajo en Neon `development`, con autorización de servidor y seguridad por fila. Los datos locales solo se importan al pulsar el botón de importación.
+- La copia antigua de `localStorage` permanece en el navegador hasta que se elimine explícitamente. La persistencia de Producción en Neon y su recuperación todavía están pendientes; no se considera producción hasta probar y desplegar esa fase.
 
 ## Alcance funcional
 
