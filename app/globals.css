@@ -86,3 +86,6 @@
 .logout-button:hover{border-color:#FF2E63;color:#b52146}
 @media(max-width:760px){.auth-screen{grid-template-columns:1fr}.auth-visual{min-height:250px;height:30vh}.auth-content{padding:30px 22px 38px}.auth-brand{margin-bottom:25px}.auth-visual::after{background:linear-gradient(0deg,rgba(7,11,28,.12),transparent 60%)}}
 @media(max-width:560px){.user-actions{gap:7px}.user-email{display:none}.logout-button{padding:7px 8px}}
+
+/* Training status colors */
+.agenda-badges{display:flex;align-items:center;gap:6px;flex-shrink:0}.status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:20px;padding:5px 9px;font-size:10px;font-weight:750;line-height:1.2;white-space:nowrap}.status-pending{background:#fff2d2;color:#8b5b00}.status-in-progress{background:#ddf8ff;color:#006c80}.status-completed{background:#e5f4e8;color:#287345}.status-cancelled{background:#ffebf0;color:#ae3152}.activity-dot.status-dot{flex:0 0 9px}.activity-dot.status-pending{background:#d18a00}.activity-dot.status-in-progress{background:#00a6c7}.activity-dot.status-completed{background:#39a36a}.activity-dot.status-cancelled{background:#dc426a}@media(max-width:640px){.agenda-badges{flex-direction:column;align-items:flex-end;gap:4px}.status-pill{padding:4px 7px;font-size:9px}}
