@@ -29,7 +29,7 @@ export async function GET() {
   if ("error" in owner) return owner.error;
   try {
     const sql = database();
-    const rows = await sql`SELECT payload FROM public.aethel_workspace WHERE owner_id = ${owner.ownerId} LIMIT 1`;
+    const rows = await sql`WITH user_context AS MATERIALIZED (SELECT set_config('aethel.owner_id', ${owner.ownerId}, true) AS owner_id) SELECT payload FROM public.aethel_workspace, user_context WHERE public.aethel_workspace.owner_id = user_context.owner_id LIMIT 1`;
     return NextResponse.json({ workspace: rows[0]?.payload ?? null }, { headers: responseHeaders });
   } catch {
     return NextResponse.json({ error: "No se pudo leer el espacio de trabajo." }, { status: 503, headers: responseHeaders });
@@ -68,8 +68,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "El espacio de trabajo supera el tamaño permitido." }, { status: 413, headers: responseHeaders });
     }
     const sql = database();
-    await sql`INSERT INTO public.aethel_workspace (owner_id, payload, updated_at)
-      VALUES (${owner.ownerId}, ${serialized}::jsonb, now())
+    await sql`WITH user_context AS MATERIALIZED (SELECT set_config('aethel.owner_id', ${owner.ownerId}, true) AS owner_id)
+      INSERT INTO public.aethel_workspace (owner_id, payload, updated_at)
+      SELECT user_context.owner_id, ${serialized}::jsonb, now() FROM user_context
       ON CONFLICT (owner_id) DO UPDATE
       SET payload = EXCLUDED.payload, updated_at = now()`;
     return NextResponse.json({ saved: true }, { headers: responseHeaders });
