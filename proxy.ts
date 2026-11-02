@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth/server";
 
-export function middleware(request: NextRequest) {
+const authMiddleware = auth.middleware({ loginUrl: "/auth/sign-in" });
+
+export default async function proxy(request: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
   const contentSecurityPolicy = [
     "default-src 'self'",
@@ -20,9 +23,13 @@ export function middleware(request: NextRequest) {
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", contentSecurityPolicy);
 
-  const response = NextResponse.next({
-    request: { headers: requestHeaders },
-  });
+  let response: NextResponse | undefined;
+  if (request.nextUrl.pathname === "/") {
+    const authResponse = await authMiddleware(request);
+    if (authResponse?.headers.get("location")) response = authResponse;
+  }
+
+  response ??= NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", contentSecurityPolicy);
   return response;
 }
