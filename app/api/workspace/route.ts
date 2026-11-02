@@ -19,8 +19,9 @@ async function authorizedOwner() {
 }
 
 function database() {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL no está configurada.");
+  const production = process.env.VERCEL_ENV === "production";
+  const url = production ? process.env.AETHELTIME_DATABASE_URL : process.env.DATABASE_URL;
+  if (!url) throw new Error(production ? "AETHELTIME_DATABASE_URL no está configurada." : "DATABASE_URL no está configurada.");
   return neon(url);
 }
 
