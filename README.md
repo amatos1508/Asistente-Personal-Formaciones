@@ -1,6 +1,16 @@
-# Asistente Personal de Formaciones
+# AethelTime
 
-Aplicación privada de uso individual para ayudar a organizar el trabajo diario, las formaciones asignadas y sus documentos. No es una herramienta de coordinación de equipos.
+Aplicación de uso individual para organizar el trabajo diario, las formaciones asignadas y sus documentos. No es una herramienta de coordinación de equipos.
+
+## Identidad visual
+- Nombre: **AethelTime**.
+- Símbolo: logo aportado por la usuaria en `public/aethel-symbol.jpg`; el nombre se representa como texto para conservar nitidez y accesibilidad.
+- Paleta: azul profundo `#1A1A2E`, cian `#00D4FF`, magenta suave `#FF2E63`, blanco y gris claro.
+
+## Acceso y protección de datos
+- Requisito pendiente: acceso de usuario con nombre de usuario y contraseña, con autenticación gestionada; no guardar contraseñas en el código ni en texto plano.
+- Estado actual: la app todavía no tiene inicio de sesión y guarda los datos en `localStorage` del navegador. El acceso desde una cuenta no cifraría ni protegería por sí solo esos registros en el dispositivo.
+- Antes de usar datos identificables de alumnos, la autenticación y el almacenamiento deberán aplicar controles de acceso del lado del servidor y asociar cada registro a la cuenta correcta.
 
 ## Alcance funcional
 
