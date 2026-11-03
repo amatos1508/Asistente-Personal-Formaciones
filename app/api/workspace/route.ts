@@ -19,6 +19,11 @@ async function authorizedOwner() {
   return { ownerId: session.user.id };
 }
 
+function reportDatabaseError(operation: "read" | "write", error: unknown) {
+  const code = typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : "unknown";
+  console.error("[aethel-workspace] database request failed", { operation, code });
+}
+
 function database() {
   const production = process.env.VERCEL_ENV === "production";
   const url = production ? process.env.AETHELTIME_DATABASE_URL : process.env.DATABASE_URL;
@@ -33,7 +38,8 @@ export async function GET() {
     const sql = database();
     const rows = await sql`WITH user_context AS MATERIALIZED (SELECT set_config('aethel.owner_id', ${owner.ownerId}, true) AS owner_id) SELECT payload FROM public.aethel_workspace, user_context WHERE public.aethel_workspace.owner_id = user_context.owner_id LIMIT 1`;
     return NextResponse.json({ workspace: rows[0]?.payload ?? null }, { headers: responseHeaders });
-  } catch {
+  } catch (error) {
+    reportDatabaseError("read", error);
     return NextResponse.json({ error: "No se pudo leer el espacio de trabajo." }, { status: 503, headers: responseHeaders });
   }
 }
@@ -76,7 +82,8 @@ export async function PUT(request: NextRequest) {
       ON CONFLICT (owner_id) DO UPDATE
       SET payload = EXCLUDED.payload, updated_at = now()`;
     return NextResponse.json({ saved: true }, { headers: responseHeaders });
-  } catch {
+  } catch (error) {
+    reportDatabaseError("write", error);
     return NextResponse.json({ error: "No se pudo guardar el espacio de trabajo." }, { status: 503, headers: responseHeaders });
   }
 }
