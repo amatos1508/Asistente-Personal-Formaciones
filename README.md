@@ -1,6 +1,16 @@
-# Asistente Personal de Formaciones
+# AethelTime
 
-Aplicación privada de uso individual para ayudar a organizar el trabajo diario, las formaciones asignadas y sus documentos. No es una herramienta de coordinación de equipos.
+Aplicación de uso individual para organizar el trabajo diario, las formaciones asignadas y sus documentos. No es una herramienta de coordinación de equipos.
+
+## Identidad visual
+- Nombre: **AethelTime**.
+- Símbolo: logo aportado por la usuaria en `public/aethel-symbol.jpg`; el nombre se representa como texto para conservar nitidez y accesibilidad.
+- Paleta: azul profundo `#1A1A2E`, cian `#00D4FF`, magenta suave `#FF2E63`, blanco y gris claro.
+
+## Acceso y protección de datos
+- El inicio de sesión lo gestiona Neon Auth y el acceso de la aplicación se limita a la cuenta permitida en la configuración privada.
+- La Preview de la rama `security/privacy-hardening` lee y guarda el espacio de trabajo en Neon `development`, con autorización de servidor y seguridad por fila. Los datos locales solo se importan al pulsar el botón de importación.
+- La copia antigua de `localStorage` permanece en el navegador hasta que se elimine explícitamente. La persistencia de Producción en Neon y su recuperación todavía están pendientes; no se considera producción hasta probar y desplegar esa fase.
 
 ## Alcance funcional
 
@@ -46,6 +56,10 @@ Aplicación privada de uso individual para ayudar a organizar el trabajo diario,
 - Proteger datos personales y guardar secretos fuera del código fuente.
 - Desarrollo por fases y pruebas antes de desplegar.
 - La especificación no implica que todas las funciones estén ya implementadas; deben desarrollarse y verificarse por etapas.
+
+## Seguridad y privacidad
+
+La aplicación publicada está protegida por Vercel Authentication para todos los despliegues. La versión actual todavía conserva sus fichas en el navegador sin cifrado propio; usa datos ficticios y no introduzcas datos personales de alumnos. Consulta [SECURITY.md](./SECURITY.md) para las reglas de acceso, datos, secretos, base de datos y gestión de incidentes.
 
 ## Fases propuestas
 1. Resolver y verificar el acceso privado.
