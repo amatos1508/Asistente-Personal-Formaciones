@@ -76,11 +76,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "El espacio de trabajo supera el tamaño permitido." }, { status: 413, headers: responseHeaders });
     }
     const sql = database();
-    await sql`WITH user_context AS MATERIALIZED (SELECT set_config('aethel.owner_id', ${owner.ownerId}, true) AS owner_id)
+    const rows = await sql`WITH user_context AS MATERIALIZED (SELECT set_config('aethel.owner_id', ${owner.ownerId}, true) AS owner_id)
       INSERT INTO public.aethel_workspace (owner_id, payload, updated_at)
       SELECT user_context.owner_id, ${serialized}::jsonb, now() FROM user_context
       ON CONFLICT (owner_id) DO UPDATE
-      SET payload = EXCLUDED.payload, updated_at = now()`;
+      SET payload = EXCLUDED.payload, updated_at = now()
+      RETURNING 1 AS persisted`;
+    if (rows.length !== 1) throw new Error("workspace write was not confirmed");
     return NextResponse.json({ saved: true }, { headers: responseHeaders });
   } catch (error) {
     reportDatabaseError("write", error);
